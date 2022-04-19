@@ -12,6 +12,8 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+extern int rate = 5;
+
 int nextpid = 1;
 struct spinlock pid_lock;
 
@@ -55,6 +57,7 @@ procinit(void)
       p->kstack = KSTACK((int) (p - proc));
   }
 }
+
 
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
@@ -598,23 +601,19 @@ pause_system(int seconds)
   struct proc *p;
   
   acquire(&tickslock);
-  my_ticks = ticks
+  uint my_ticks = ticks;
 
 for(p = proc; p < &proc[NPROC]; p++){
    acquire(&p->lock);    
-   //if(p->pid == pid){
-      p->killed = 1;
-      // Wake process from sleep if necessary.
-      if(p->state == SLEEPING){
+     if(p->pid != initproc || p->pid != 2){
+      if(p->state == RUNNING){
         p->state = RUNNABLE;
+        }
        }
       release(&p->lock);
       return 0;
    }
-  release(&p->lock);
-  }
- return -1;
-}
+
 
 
 
@@ -627,7 +626,7 @@ kill_system(void)
 {
   struct proc *p; 
   for(p = proc; p < &proc[NPROC]; p++){   
-   if(p->pid != initproc || p->pid != 2){
+   if(p->pid != initproc || p->pid != 2){ 
     kill(p->pid);
        }
       return 0;
