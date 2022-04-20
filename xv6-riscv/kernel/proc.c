@@ -452,6 +452,10 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
+  acquire(&tickslock);
+  uint curTicks = ticks;
+  release(&tickslock);
+  if (curTicks > pauseTime)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
