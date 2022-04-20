@@ -12,7 +12,11 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
-extern int rate = 5;
+// global var for schedule policiy
+int rate = 5;
+
+//global var for pause system call
+uint64 pauseTime = 0;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -582,17 +586,6 @@ wakeup(void *chan)
 //currently running processes will change to RUNNABLE, until the time is up. When
 //the timer is finished normal execution should be resumed.
 
-/*
-int  
-pause_system(int seconds){  
-  int sectoticks = seconds*10;  
-  acquire(&tickslock);  
-  finish = ticks+sectoticks;  
-  release(&tickslock);  
-  yield();  
-  return 0;  
-}
-*/
 
 
 int 
@@ -601,18 +594,22 @@ pause_system(int seconds)
   struct proc *p;
   
   acquire(&tickslock);
-  uint my_ticks = ticks;
-
-for(p = proc; p < &proc[NPROC]; p++){
-   acquire(&p->lock);    
-     if(p->pid != initproc || p->pid != 2){
-      if(p->state == RUNNING){
-        p->state = RUNNABLE;
-        }
-       }
-      release(&p->lock);
-      return 0;
+  pauseTime = ticks + (seconds*10);
+  release(&tickslock);
+  yield(); // CHECK if we need to do this before returning
+  return 0;
    }
+
+//  no need for the for as the system is the only runnable
+
+// for(p = proc; p < &proc[NPROC]; p++){
+//    acquire(&p->lock);    
+//      if(p->pid != initproc || p->pid != 2){
+//       if(p->state == RUNNING){
+//         p->state = RUNNABLE;
+//         }
+//        }
+      // release(&p->lock);
 
 
 
