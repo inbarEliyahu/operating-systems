@@ -92,11 +92,19 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-  int mean_ticks;         //  need to restart with ziro
-  int last_ticks;         //
+  int mean_ticks;
+  int last_ticks;
+  int last_runnable_time;
 
-
-
+  //statistics
+  int sleeping_time;
+  int running_time;
+  int runnable_time;         //the sum of all the time the process spent in runable
+  int last_runnable;        // the clock when the process enter the runable state
+  int last_running;         // the clock when the process enter the running state
+  int last_sleep;            // the clock when the process enter the SLEEPING state
+ 
+    
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 
