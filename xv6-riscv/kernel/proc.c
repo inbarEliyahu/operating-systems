@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+//#include "minheap_SJF.c"
 
 struct cpu cpus[NCPU];
 
@@ -126,6 +127,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->last_ticks=0;
+  p->mean_ticks=0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -441,6 +444,8 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
+#ifdef DEFAULT
 void
 scheduler(void)
 {
@@ -452,10 +457,11 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-  acquire(&tickslock);
-  uint curTicks = ticks;
-  release(&tickslock);
-  if (curTicks > pauseTime)
+  // acquire(&tickslock);
+  // uint curTicks = ticks;
+  // release(&tickslock);
+
+//  if (curTicks >= pauseTime)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -474,7 +480,68 @@ scheduler(void)
     }
   }
 }
+#endif
 
+
+#ifdef SJF
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  
+  c->proc = 0;
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+  acquire(&tickslock);
+  uint curTicks = ticks;
+  release(&tickslock);
+  if (curTicks >= pauseTime)
+  {
+    uint minTicks = 2147483647;
+    struct proc* minProc = p;
+
+    // for to find the runnable with min mean ticks
+    for(p = proc; p < &proc[NPROC]; p++) {
+          
+       if(p->state == RUNNABLE) {
+         if (p->mean_ticks < minTicks)
+         {
+           minProc = p;
+           minTicks = p->mean_ticks;
+         }
+       }
+    }
+    p = minProc;
+    // Switch to chosen process.  It is the process's job
+    // to release its lock and then reacquire it
+    // before jumping back to us.
+    acquire(&p->lock);
+    p->state = RUNNING;
+    c->proc = p;
+    acquire(&tickslock);
+    curTicks = ticks;
+    release(&tickslock);
+    swtch(&c->context, &p->context);
+    acquire(&tickslock);
+    uint last_curTicks = ticks;
+    release(&tickslock);
+    p->last_ticks= last_curTicks - curTicks;
+    p->mean_ticks=((10 - rate) * p->mean_ticks + p->last_ticks * (rate)) / 10 ;
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+      
+      release(&p->lock);
+    }
+  }
+  }
+#endif
+
+// #ifdef FCFS
+// #endif
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -582,6 +649,8 @@ wakeup(void *chan)
     }
   }
 }
+
+
 //************** Task #1 system calls *****************
 
 // pause_system: pause all user processes for the number of seconds specified by the
@@ -595,8 +664,6 @@ wakeup(void *chan)
 int 
 pause_system(int seconds)
 {
-  struct proc *p;
-  
   acquire(&tickslock);
   pauseTime = ticks + (seconds*10);
   release(&tickslock);
@@ -604,16 +671,9 @@ pause_system(int seconds)
   return 0;
    }
 
-//  no need for the for as the system is the only runnable
+//  no need for the for as the system is the only running
 
-// for(p = proc; p < &proc[NPROC]; p++){
-//    acquire(&p->lock);    
-//      if(p->pid != initproc || p->pid != 2){
-//       if(p->state == RUNNING){
-//         p->state = RUNNABLE;
-//         }
-//        }
-      // release(&p->lock);
+
 
 
 
@@ -627,11 +687,11 @@ kill_system(void)
 {
   struct proc *p; 
   for(p = proc; p < &proc[NPROC]; p++){   
-   if(p->pid != initproc || p->pid != 2){ 
+   if(p->pid != initproc->pid || p->pid != 2){ 
     kill(p->pid);
        }
-      return 0;
    }
+   return 0;
 }
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
