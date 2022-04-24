@@ -45,7 +45,7 @@ pause_system prints two variables in each loop iteration and calls pause_system 
 middle iteration.
 kill_system does the same but calls kill_system instead.
 See this code for an example.
-3 Scheduling policies
+## 3 Scheduling policies
 In the next part of the assignment, you will need to add two new scheduling policies in
 addition to the existing policy. Add these policies by using the C preprocessing abilities.
 Please read this #IFDEF macros example, and this short guide.
