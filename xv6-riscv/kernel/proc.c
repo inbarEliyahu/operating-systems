@@ -498,10 +498,10 @@ scheduler(void)
     acquire(&tickslock);
     uint curTicks = ticks;
     release(&tickslock);
-    if (curTicks >= pauseTime)
     
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+    if (curTicks >= pauseTime || p->pid <= 1){ // swapped here so it won't block init and shell
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
@@ -509,7 +509,8 @@ scheduler(void)
         
         //****RUNNABLE STATISTIC MESURMENTS!!!*****
         acquire (&tickslock);
-        p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
+        if (p->pid > 1)
+          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
         release(&tickslock);
         p->state = RUNNING;
 
@@ -525,7 +526,8 @@ scheduler(void)
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
-      release(&p->lock);
+    }
+    release(&p->lock);
     }
   }
 }
@@ -570,7 +572,8 @@ scheduler(void)
     
     //****RUNNABLE STATISTIC MESURMENTS!!!*****
         acquire (&tickslock);
-        p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time)
+        if (p->pid > 1)
+          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time)
         release(&tickslock);
     p->state = RUNNING;
     
@@ -636,7 +639,8 @@ scheduler(void)
     acquire(&p->lock);
     //****RUNNABLE STATISTIC MESURMENTS!!!*****
         acquire (&tickslock);
-        p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
+        if (p->pid > 1)
+          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
         release(&tickslock);
 
     p->state = RUNNING;
@@ -697,8 +701,10 @@ yield(void)
 
   //****RUNNABLE STATISTIC MESURMENTS!!!*****
   acquire(&tickslock);
+  if (p->pid > 1){
   p->last_runnable=ticks;
   p->running_time = p->running_time + ticks - p->last_running; 
+  }
   release(&tickslock);
   
   #ifdef FCFS
@@ -751,7 +757,6 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
-
   // ***** for statistics *****
   acquire(&tickslock);
   uint curTicks = ticks;
@@ -766,7 +771,9 @@ sleep(void *chan, struct spinlock *lk)
           p->last_sleep=ticks;
           release(&tickslock);
   
+  printf("sleep1\n");
   sched();
+  printf("sleep2\n");
 
   // Tidy up.
   p->chan = 0;

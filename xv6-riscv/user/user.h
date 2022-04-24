@@ -25,6 +25,7 @@ int sleep(int);
 int uptime(void);
 int pause_system(int seconds);
 int kill_system(void);
+int print_stats(void);
 
 
 // ulib.c
