@@ -135,6 +135,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_env\
+	$U/_syscall\
+	
 
 
 fs.img: mkfs/mkfs README $(UPROGS)

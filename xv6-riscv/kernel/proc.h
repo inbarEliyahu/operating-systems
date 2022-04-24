@@ -92,13 +92,13 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid; 
-  int mean_ticks;
-  int last_ticks;
-  int last_runnable_time;
+  int mean_ticks;               //for the SJF
+  int last_ticks;               //for the SJF
+  int last_runnable_time;       //for the FCFS
 
   //statistics
-  int sleeping_time;
-  int running_time;
+  int sleeping_time;           //the sum of all the time the process spent in sleeping
+  int running_time;          //the sum of all the time the process spent in running
   int runnable_time;         //the sum of all the time the process spent in runable
   int last_runnable;        // the clock when the process enter the runable state
   int last_running;         // the clock when the process enter the running state

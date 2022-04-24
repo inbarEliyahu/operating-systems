@@ -18,9 +18,8 @@ uint pauseTime = 0;
 int rate = 5;
 int running_processes_mean = 0, 
 runnable_processes_mean = 0 , 
-sleeping_processes_mean = 0,
 finished_processes = 0, program_time = 0, start_time, cpu_utilization;
-
+int sleeping_processes_mean = 0;
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -55,9 +54,10 @@ void
 procinit(void)
 {
   struct proc *p;
-  acquire(&tickslock);
+   
   start_time = ticks;
-  release(&tickslock);
+  
+   
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
@@ -135,9 +135,9 @@ found:
   p->mean_ticks = 0;
   #endif
   #ifdef FCFS
-  acquire(&tickslock);
+   
   p->last_runnable_time = ticks;
-  release(&tickslock); 
+    
   #endif
   p->sleeping_time = 0;
   p->running_time = 0;
@@ -267,15 +267,15 @@ userinit(void)
    p->state = RUNNABLE;
 
    //****RUNNABLE STATISTIC MESURMENTS!!!*****
-    acquire(&tickslock);
+     
     p->last_runnable=ticks;
-    release(&tickslock);
+     
   
   
   #ifdef FCFS
-  acquire(&tickslock);
+   
   p->last_runnable_time = ticks;
-  release(&tickslock); 
+    
   #endif
   release(&p->lock);
 }
@@ -404,6 +404,9 @@ exit(int status)
   p->xstate = status;
   p->state = ZOMBIE;
 
+  p->last_runnable=ticks;   //  for statistics
+  p->running_time = p->running_time + ticks - p->last_running; // for statistics
+
   release(&wait_lock);
 
   // statistics
@@ -415,10 +418,12 @@ exit(int status)
     ((sleeping_processes_mean * finished_processes) + p->sleeping_time)/(finished_processes + 1);
   finished_processes++;
 
+
   program_time += p->running_time;
-  acquire(&tickslock); 
-  cpu_utilization = program_time / (ticks - start_time);
-  release(&tickslock);
+    
+  cpu_utilization = program_time*100 / (ticks - start_time);
+
+   
 
   // Jump into the scheduler, never to return.
   sched();
@@ -495,9 +500,9 @@ scheduler(void)
     intr_on();
     
   // for the system call pause_system
-    acquire(&tickslock);
+     
     uint curTicks = ticks;
-    release(&tickslock);
+     
     
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -508,16 +513,16 @@ scheduler(void)
         // before jumping back to us.
         
         //****RUNNABLE STATISTIC MESURMENTS!!!*****
-        acquire (&tickslock);
-        if (p->pid > 1)
-          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
-        release(&tickslock);
+        // acquire (&tickslock);
+        if (p->pid > 1){
+          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);}
+         
         p->state = RUNNING;
 
         //****LAST_RUNNING  STATISTIC MESURMENTS!!!*****
-        acquire (&tickslock);
+        // acquire (&tickslock);
         p->last_running = ticks;
-        release(&tickslock);
+         
         
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -545,11 +550,10 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-  acquire(&tickslock);
+   
   uint curTicks = ticks;
-  release(&tickslock);
-  if (curTicks >= pauseTime)
-  {
+   
+
     uint minTicks = 2147483647;
     struct proc* minProc = proc;
 
@@ -569,35 +573,31 @@ scheduler(void)
     // to release its lock and then reacquire it
     // before jumping back to us.
     acquire(&p->lock);
+      if (curTicks >= pauseTime || p->pid <= 1){
     
     //****RUNNABLE STATISTIC MESURMENTS!!!*****
-        acquire (&tickslock);
-        if (p->pid > 1)
-          p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time)
-        release(&tickslock);
+        // acquire (&tickslock);
+        if (p->pid > initproc->pid+1){
+          p->runnable_time = p->runnable_time + (ticks - p->last_runnable_time);
+          }
+         
     p->state = RUNNING;
     
     //****RUNNING STATISTIC MESURMENTS!!!*****
-    acquire (&tickslock);
-    p->last_running_time = ticks;
-    release(&tickslock);
-    
+    // acquire (&tickslock);
+    p->last_running = ticks;
     c->proc = p;
-    acquire(&tickslock);
     curTicks = ticks;
-    release(&tickslock);
     swtch(&c->context, &p->context);
-    acquire(&tickslock);
     uint last_curTicks = ticks;
-    release(&tickslock);
     p->last_ticks= last_curTicks - curTicks;
     p->mean_ticks=((10 - rate) * p->mean_ticks + p->last_ticks * (rate)) / 10 ;
     // Process is done running for now.
     // It should have changed its p->state before coming back.
     c->proc = 0;
       
-      release(&p->lock);
     }
+      release(&p->lock);
   }
 }
 #endif
@@ -614,11 +614,9 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-  acquire(&tickslock);
+   
   uint curTicks = ticks;
-  release(&tickslock);
-  if (curTicks >= pauseTime)
-  {
+  
     uint max_waiting = 2147483647;
     struct proc* minProc = proc;
     // for to find the runnable with min mean ticks
@@ -637,27 +635,31 @@ scheduler(void)
     // to release its lock and then reacquire it
     // before jumping back to us.
     acquire(&p->lock);
+
+    if (curTicks >= pauseTime || p->pid <= 1){
     //****RUNNABLE STATISTIC MESURMENTS!!!*****
-        acquire (&tickslock);
+        // acquire (&tickslock);
         if (p->pid > 1)
           p->runnable_time = p->runnable_time +(ticks-p->last_runnable_time);
-        release(&tickslock);
+        
 
     p->state = RUNNING;
     //****RUNNING STATISTIC MESURMENTS!!!*****
-    acquire (&tickslock);
+    //acquire(&tickslock);
     p->last_running = ticks;
-    release(&tickslock);
+    
     c->proc = p;
     swtch(&c->context, &p->context);
+    
+    
     
     // Process is done running for now.
     // It should have changed its p->state before coming back.
     c->proc = 0;
      
-      release(&p->lock);
       
     }
+      release(&p->lock);
   }
   
   
@@ -677,18 +679,22 @@ sched(void)
   int intena;
   struct proc *p = myproc();
 
-  if(!holding(&p->lock))
+  if(!holding(&p->lock)) //בודק אם המנעול של התהליך תפוס
     panic("sched p->lock");
-  if(mycpu()->noff != 1)
+  if(mycpu()->noff != 1) //מספר המנעולים שנתפסו עד כה
     panic("sched locks");
   if(p->state == RUNNING)
     panic("sched running");
   if(intr_get())
     panic("sched interruptible");
+  
 
   intena = mycpu()->intena;
+
   swtch(&p->context, &mycpu()->context);
+
   mycpu()->intena = intena;
+
 }
 
 // Give up the CPU for one scheduling round.
@@ -700,17 +706,15 @@ yield(void)
   p->state = RUNNABLE;
 
   //****RUNNABLE STATISTIC MESURMENTS!!!*****
-  acquire(&tickslock);
+   
   if (p->pid > 1){
   p->last_runnable=ticks;
   p->running_time = p->running_time + ticks - p->last_running; 
   }
-  release(&tickslock);
+  
   
   #ifdef FCFS
-  acquire(&tickslock);
   p->last_runnable_time = ticks;
-  release(&tickslock);
   #endif
   
   sched();
@@ -758,18 +762,18 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   // ***** for statistics *****
-  acquire(&tickslock);
+   
   uint curTicks = ticks;
-  release(&tickslock);
+  
   p->last_running = curTicks;
 
   
   
   p->state = SLEEPING;
   //****SLEEPING STATISTIC MESURMENTS!!!*****
-          acquire(&tickslock);
+           
           p->last_sleep=ticks;
-          release(&tickslock);
+
   
   sched();
   
@@ -793,20 +797,18 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-
-         //****SLEEPING & LAST_RUNNABLE STATISTIC MESURMENTS!!!*****
-          acquire(&tickslock);
-          p->last_runnable=ticks;
-          p->sleeping_time = p->sleeping_time + (ticks - p->last_sleep);
-          release(&tickslock);
-        
          p->state = RUNNABLE;
+
+//****SLEEPING & LAST_RUNNABLE STATISTIC MESURMENTS!!!*****
+         
+         p->last_runnable=ticks;
+         p->sleeping_time = p->sleeping_time + (ticks - p->last_sleep);
          
        
         #ifdef FCFS 
-        acquire(&tickslock);
+         
         p->last_runnable_time = ticks;
-        release(&tickslock); 
+         
         #endif
       }
       release(&p->lock);
@@ -827,9 +829,9 @@ wakeup(void *chan)
 int 
 pause_system(int seconds)
 {
-  acquire(&tickslock);
+  // acquire(&tickslock);
   pauseTime = ticks + (seconds*10);
-  release(&tickslock);
+  //release(&tickslock);
   yield(); // CHECK if we need to do this before returning
   return 0;
    }
@@ -850,7 +852,8 @@ kill_system(void)
 {
   struct proc *p; 
   for(p = proc; p < &proc[NPROC]; p++){   
-   if(p->pid != initproc->pid || p->pid != 2){ 
+  //  if(p->pid != initproc->pid || p->pid != 2){ 
+   if(p->pid > (initproc->pid) + 1){ 
     kill(p->pid);
        }
    }
@@ -867,6 +870,7 @@ int print_stats(void){
   printf("runnable_processes_mean: %d\n", runnable_processes_mean);
   printf("sleeping_processes_mean: %d\n", sleeping_processes_mean);
   printf("********* end of print system stats *********\n");
+  printf("finished processes %d\n", finished_processes); // remove later
 
   return 0;
 }
@@ -888,9 +892,9 @@ kill(int pid)
          p->state = RUNNABLE;
          
          //****RUNNABLE STATISTIC MESURMENTS!!!*****
-          acquire(&tickslock);
+          
           p->last_runnable=ticks;
-          release(&tickslock);
+           
       }
       release(&p->lock);
       return 0;

@@ -23,10 +23,14 @@ void env(int size, int interval, char* env_name) {
         if (i % (loop_size / (int) 10e0) == 0) {
         	if (pid == 0) {
         		printf("%s %d/%d completed.\n", env_name, i, loop_size);
-        	} else {
-        		printf(" ");
         	}
+            else{
+                if(i%2==0){
+                    sleep(1);
+                }
+            }
         }
+        
         if (i % interval == 0) {
             result = result * size;
         }
@@ -49,8 +53,24 @@ main(int argc, char *argv[]){
     env_large();
     env_freq();
     print_stats();
-   
+    
     
     exit(0);
 
 }
+
+// int action(void){
+//     printf("going to sleep\n");
+//     sleep(1);
+//     sleep(1);
+//     sleep(1);
+//     sleep(1);
+//     if(fork()==0) sleep(1);
+//     if(fork()==0) sleep(1);
+//     if(fork()==0) sleep(1);
+
+//     printf("done sleeping\n");
+//     prin
+    
+//     exit(0);
+// }
